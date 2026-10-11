@@ -78,7 +78,7 @@ crates/assets  native only: install detection, CustomKeys path, game file readin
 crates/core    pure, no IO: game data model (done) + generate(choices) -> String
 ```
 - `crates/core` stays pure so a web version stays possible later.
-- **Game data:** read from the user's install at runtime (never shipped), then handed to core.
+- **Game data:** the exe reads it from the user's install at runtime, then hands it to core. The web version ships an extracted copy (see [web.md](web.md#the-game-pack)).
 - **Release profile:** `opt-level = "z"`, `lto = "fat"`, `codegen-units = 1`, `panic = "abort"`, `strip = true`.
 - **Tests:** generator golden files and roundtrip checks in core, without a UI. CI runs on Windows.
 

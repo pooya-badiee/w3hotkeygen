@@ -1,2 +1,4 @@
 # Shell scripts run on Linux CI.
 *.sh text eol=lf
+# Compressed game files for the web version.
+*.pack binary

@@ -29,9 +29,9 @@ you're on. After a patch, open it and press Apply again.
 **Reset** puts back whatever `CustomKeys.txt` you had before the first Apply.
 
 Rather not run an exe? The [web version](https://pooya-badiee.github.io/w3hotkeygen/app/) is the
-same app in your browser: select your Warcraft III folder, set your keys, and it downloads
-`CustomKeys.txt` for you to put in `Documents\Warcraft III\CustomKeyBindings`. Your files are read
-in the browser and never uploaded.
+same app in your browser: set your keys and it downloads `CustomKeys.txt` for you to put in
+`Documents\Warcraft III\CustomKeyBindings`. It carries its own copy of the game's unit data, so
+after a patch it may lag behind the exe until it's updated.
 
 Heads-up: the game's own keybind menu rewrites the whole file when you save in it, so don't mix
 the two.

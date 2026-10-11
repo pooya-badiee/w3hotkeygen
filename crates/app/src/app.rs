@@ -293,7 +293,7 @@ impl eframe::App for App {
             ui.add_space(8.0);
             action = match &mut self.screen {
                 _ if self.credits => {
-                    if panels::credits(ui, theme, ALSO) { Action::Credits } else { Action::None }
+                    if panels::credits(ui, theme, ART, ALSO) { Action::Credits } else { Action::None }
                 }
                 Screen::Ready(r) => ready_ui(ui, theme, r, &self.keys, self.listening),
                 Screen::Locate(l) => locate_ui(ui, theme, l),
@@ -443,6 +443,10 @@ impl App {
 fn load_keys(file: Option<&Path>) -> (Keys, Option<String>) {
     panels::read_keys(&file.map(keyfile::read).unwrap_or_default())
 }
+
+/// The credits' "Game art" row.
+const ART: &str =
+    "Icons, art and fonts belong to Blizzard Entertainment. They're read from your Warcraft III install; none are included.";
 
 /// The credits' "Also" row.
 const ALSO: &str = "image, rfd, winreg, miniz_oxide and the other Rust crates they use (MIT, Apache-2.0 and similar).";

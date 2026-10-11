@@ -1,6 +1,6 @@
 # Web version
 
-The same egui app, compiled to WASM and served from its own page on the site (`/app`). It's heavier than a plain page (about 5MB of WASM), but it's a dedicated page and feels like downloading an app. Nothing is installed.
+The same egui app, compiled to WASM and served from its own page on the site (`/app`). It needs no install: the game's art, fonts and unit data ship with the page. Downloads are about 5MB of WASM plus a 2.4MB data pack.
 
 Code: [crates/web](../crates/web) (the WASM entry point and browser glue) and [site/src/pages/app/index.astro](../site/src/pages/app/index.astro) (the page). The look and the screen parts the exe also uses are in [crates/ui](../crates/ui).
 
@@ -8,34 +8,38 @@ Code: [crates/web](../crates/web) (the WASM entry point and browser glue) and [s
 
 | | Exe | Web |
 |---|---|---|
-| Find the install | Registry, folder scan | The user picks the WC3 folder on the page |
-| Read game files | CASC reader on `std::fs` | The same reader, on browser `File` handles |
+| Game files | Read from the user's install | Bundled: `site/public/app/game.pack` |
+| Unit data | Always the installed patch | The patch the pack was extracted from (shown under the buttons) |
 | Output | Apply replaces `CustomKeyBindings\CustomKeys.txt`, with a backup | **Download** saves `CustomKeys.txt`. The page says where to put it |
 | Starting keys | Read from the user's file | Read from the last downloaded file (`localStorage`), else defaults |
 | Reset | Restores the backup | Not shown. To undo, the user deletes the file |
-| Loading | Theme and data on worker threads | Everything is read up front (`spawn_local`), then shown |
 | Window | Borderless window with close and minimize | A fixed 768x490 canvas on the page |
 
+## The game pack
+Shipping Blizzard's files is the owner's decision (2026-10-11), and applies only to the web version. The pack holds what the app reads, and nothing else: the theme art and fonts (`theme::paths()`), the `enus` unit data (`load::paths("enus")`), and the game version.
+
+- **Format:** [`w3hk_core::pack`](../crates/core/src/pack.rs) (a flat list of named files), zlib-compressed, because GitHub Pages doesn't compress unknown file types (8.9MB raw).
+- **Extract it** from the local install (3.0.0.24268 as of now):
+  ```sh
+  cargo run -p w3hk-ui --example pack -- site/public/app/game.pack
+  ```
+- **After a game patch,** re-extract and commit the pack, so the web version's unit data matches the game. Until then, its file is generated from the older data.
+
 ## Flow
-1. The page loads the WASM in the background and asks for the folder. It uses `showDirectoryPicker()` on Chrome and Edge, and `<input webkitdirectory>` elsewhere. Picking the folder is HTML, not egui, so the click is a real user gesture, and the app only starts once the game art is available.
-2. The page passes only the files the reader opens: the root files (`.build.info`), `Data/config/**` and `Data/data/*`. They're a `Map` of path to `File`. With `showDirectoryPicker` only those folders are walked. It refuses a folder without `.build.info`.
-3. [`start`](../crates/web/src/lib.rs) runs the app on the canvas. `FileSource` reads through `File.slice()`, so the multi-GB `data.###` archives are never loaded whole.
-4. **Download** generates the file exactly like Apply (checked: byte for byte the same as the exe's output), saves it as a download, and keeps it in `localStorage`. **Change** reloads the page to pick another folder.
+1. The page fetches the WASM and `game.pack` at the same time, then calls [`start`](../crates/web/src/lib.rs) with the pack's bytes.
+2. The app unpacks it, decodes the art, parses the unit data, and shows the screen. That takes about half a second locally.
+3. **Download** generates the file exactly like Apply (checked: byte for byte the same as the exe's output), saves it as a download, and keeps it in `localStorage`.
 
 - **Where to save:** under the canvas the page names `Documents\Warcraft III\CustomKeyBindings` and mentions `OneDrive\Documents\…`, because the page can't follow OneDrive redirection the way the exe does.
-- **No Blizzard assets are shipped.** Art, fonts and data come from the user's folder.
-
-## The CASC reader
-[crates/casc](../crates/casc), described in [game-files.md](game-files.md#reader-our-own-in-pure-rust). It replaced CascLib, which is C++ and doesn't build for `wasm32-unknown-unknown`.
-
-**Async reads:** browser reads are async, so the `Source` trait is async. On native, `Storage` runs it with a trivial blocking executor, because file system reads finish on the first poll. On the web, `Casc` is awaited directly.
 
 ## Build
-`tools/web/build.sh` builds `crates/web` for `wasm32-unknown-unknown` and runs `wasm-bindgen --target web` into `site/public/app/pkg` (gitignored). [pages.yml](../.github/workflows/pages.yml) does the same before building the site. `crates/web` has dependencies only on wasm32, so native workspace builds neither pull in the browser crates nor unify features with them.
+`tools/web/build.sh` builds `crates/web` for `wasm32-unknown-unknown` and runs `wasm-bindgen --target web` into `site/public/app/pkg` (gitignored). [pages.yml](../.github/workflows/pages.yml) does the same before building the site. The pack is committed, because CI has no install to extract it from. `crates/web` has dependencies only on wasm32, so native workspace builds neither pull in the browser crates nor unify features with them.
 
-**Tested** in headless Chrome (Playwright, `webkitdirectory` path): picking the folder, loading the art and unit data (about 8s in software WebGL), setting a key, and Download.
+**Tested** in headless Chrome (Playwright): load, set a key, Download.
+
+## History
+The first version had the user pick their Warcraft III folder and read it with the CASC reader through `File.slice()`. That's why [crates/casc](../crates/casc) has an async `Source` trait. Bundling the files replaced it, so the page needs no install and works on any browser. Commit `d83118c` has the folder-picker version.
 
 ## Later, if wanted
-- Remember the folder on Chrome and Edge (`FileSystemDirectoryHandle` in IndexedDB), so a returning user skips the picker.
-- "Open my CustomKeys.txt", to start from a file made elsewhere.
+- Other locales' unit data in the pack (names and default hotkeys differ per locale).
 - `wasm-opt` to shrink the WASM.

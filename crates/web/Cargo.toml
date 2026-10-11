@@ -11,21 +11,19 @@ crate-type = ["cdylib"]
 # Only the wasm build has anything in it, so native builds of the workspace
 # don't pull in (or unify features with) the browser crates.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-w3hk-casc = { path = "../casc" }
 w3hk-core = { path = "../core" }
 w3hk-ui = { path = "../ui" }
 eframe = { version = "0.36", default-features = false, features = ["glow", "default_fonts"] }
 js-sys = "0.3"
+miniz_oxide = "0.9"
 wasm-bindgen = "=0.2.129"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
     "Blob",
     "BlobPropertyBag",
     "Document",
-    "File",
     "HtmlAnchorElement",
     "HtmlCanvasElement",
-    "Location",
     "Storage",
     "Url",
     "Window",

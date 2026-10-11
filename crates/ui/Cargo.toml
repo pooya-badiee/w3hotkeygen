@@ -9,3 +9,7 @@ description = "The look and the shared screen parts of the exe and the web page"
 w3hk-core = { path = "../core" }
 eframe = { version = "0.36", default-features = false, features = ["glow", "default_fonts"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+w3hk-assets = { path = "../assets" }
+miniz_oxide = "0.9"

@@ -24,6 +24,7 @@ cargo test -p w3hk-assets --test reference -- --nocapture  # data vs. the user's
 ```sh
 cargo install wasm-bindgen-cli --version 0.2.129 --locked   # once; must match the wasm-bindgen crate
 tools/web/build.sh                      # WASM into site/public/app/pkg (gitignored)
+cargo run -p w3hk-ui --example pack -- site/public/app/game.pack   # re-extract the web version's game files after a patch
 cd site && npm install && npm run dev   # local preview
 npm run build                           # type check (astro check), then static output in site/dist
 ```
@@ -37,4 +38,4 @@ npm run build                           # type check (astro check), then static 
 | `W3HK_SCREEN=credits` | Open straight to the Credits |
 
 ## Notes
-- Anything you extract from the game for poking around stays local. Never commit it.
+- Anything you extract from the game for poking around stays local. Never commit it. The one exception is the web version's `site/public/app/game.pack`, made by the `pack` example.

@@ -177,13 +177,9 @@ pub fn footer(ui: &mut egui::Ui, content: Rect, text: &str) -> bool {
 
 pub const DISCLAIMER: &str = "Unofficial fan tool. Not affiliated with or endorsed by Blizzard Entertainment.";
 
-/// Who made what this app is built from, except the "Also" row, which
-/// differs between the exe and the web page.
-const CREDITS: [(&str, &str); 5] = [
-    (
-        "Game art",
-        "Icons, art and fonts belong to Blizzard Entertainment. They're read from your Warcraft III install; none are included.",
-    ),
+/// Who made what this app is built from, except the "Game art" and "Also"
+/// rows, which differ between the exe and the web page.
+const CREDITS: [(&str, &str); 4] = [
     ("Game files", "Our own CASC reader, written with CascLib by Ladislav Zezula (MIT) as the reference."),
     ("Interface", "egui and eframe by Emil Ernerfelt and contributors (MIT or Apache-2.0)."),
     (
@@ -196,12 +192,13 @@ const CREDITS: [(&str, &str); 5] = [
     ),
 ];
 
-/// Shown in place of the screen. `also` lists the other crates. `true` when
-/// Back was clicked.
-pub fn credits(ui: &mut egui::Ui, theme: Option<&Theme>, also: &str) -> bool {
+/// Shown in place of the screen. `art` says where the game's art comes from
+/// and `also` lists the other crates. `true` when Back was clicked.
+pub fn credits(ui: &mut egui::Ui, theme: Option<&Theme>, art: &str, also: &str) -> bool {
     subheading(ui, "Credits");
     ui.add_space(6.0);
     let mut rows: Vec<(&str, &str)> = CREDITS.to_vec();
+    rows.insert(0, ("Game art", art));
     rows.insert(4, ("Also", also));
     egui::Grid::new("credits").num_columns(2).spacing(vec2(16.0, 10.0)).show(ui, |ui| {
         for (what, who) in rows {

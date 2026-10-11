@@ -10,6 +10,7 @@ pub mod data;
 pub mod grid;
 pub mod ini;
 pub mod load;
+pub mod pack;
 pub mod slk;
 
 use std::collections::BTreeMap;

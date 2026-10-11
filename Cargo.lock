@@ -2146,6 +2146,8 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "image",
+ "miniz_oxide 0.9.1",
+ "w3hk-assets",
  "w3hk-core",
 ]
 
@@ -2155,7 +2157,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "js-sys",
- "w3hk-casc",
+ "miniz_oxide 0.9.1",
  "w3hk-core",
  "w3hk-ui",
  "wasm-bindgen",
