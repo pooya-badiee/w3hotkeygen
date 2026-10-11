@@ -13,7 +13,7 @@ Code: [crates/web](../crates/web) (the WASM entry point and browser glue) and [s
 | Output | Apply replaces `CustomKeyBindings\CustomKeys.txt`, with a backup | **Download** saves `CustomKeys.txt`. The status line says where to put it |
 | Starting keys | Read from the user's file | Read from the last downloaded file (`localStorage`), else defaults |
 | Reset | Restores the backup | Not shown. To undo, the user deletes the file |
-| Window | Borderless window with close and minimize | A 768x490 canvas on the page. On narrower screens (phones) it shrinks to fit, and the app zooms by the same factor (`fit_to_canvas`), so it's the same window, smaller. Desktop is the reference: there the zoom is always 1 |
+| Window | Borderless window with close and minimize | A fixed 768x490 canvas on the page; a narrower desktop window scrolls. Touch-only devices (`hover: none` and `pointer: coarse`) get a "made for a computer with a keyboard" note instead, and nothing is downloaded |
 
 ## The game pack
 Shipping Blizzard's files is the owner's decision (2026-10-11), and applies only to the web version. The pack holds what the app reads, and nothing else: the theme art and fonts (`theme::paths()`), the `enus` unit data (`load::paths("enus")`), and the game version.

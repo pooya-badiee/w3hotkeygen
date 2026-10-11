@@ -22,6 +22,10 @@ const base = import.meta.env.BASE_URL;
         <p id="status">Loading…</p>
         <canvas id="canvas"></canvas>
       </div>
+      <div class="touch-only">
+        <h1>WC3 Grid Hotkeys</h1>
+        <p>Made for a computer with a keyboard. Open this page on your PC.</p>
+      </div>
       <p class="note">
         In game, set <em>Options &gt; Input &gt; Preset Keybindings</em> to Custom and restart.
       </p>
@@ -33,7 +37,8 @@ const base = import.meta.env.BASE_URL;
 
     <script>
       // Starts the WASM app (crates/web) with the bundled game files
-      // (game.pack), both fetched at once.
+      // (game.pack), both fetched at once. Touch-only devices (phones,
+      // tablets) get a note instead: setting keys needs a keyboard.
       const base = document.body.dataset.base;
       const status = document.getElementById("status") as HTMLElement;
       const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -55,10 +60,14 @@ const base = import.meta.env.BASE_URL;
         canvas.focus();
       }
 
-      main().catch((e) => {
-        status.textContent = `Couldn't start: ${e}`;
-        status.classList.add("error");
-      });
+      if (matchMedia("(hover: none) and (pointer: coarse)").matches) {
+        document.body.classList.add("touch");
+      } else {
+        main().catch((e) => {
+          status.textContent = `Couldn't start: ${e}`;
+          status.classList.add("error");
+        });
+      }
     </script>
   </body>
 </html>
@@ -80,16 +89,16 @@ const base = import.meta.env.BASE_URL;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: safe center;
+    justify-content: safe center;
     padding: 16px;
+    overflow-x: auto;
   }
-  /* The app's window size. On narrower screens it shrinks, keeping its
-     shape, and the app zooms to match (fit_to_canvas in crates/web). */
+  /* The app's fixed window size. */
   .window {
     position: relative;
-    width: min(768px, 100%);
-    aspect-ratio: 768 / 490;
+    width: 768px;
+    height: 490px;
     flex: none;
     margin-bottom: 14px;
   }
@@ -114,6 +123,29 @@ const base = import.meta.env.BASE_URL;
   }
   .error {
     color: #ff6a4d;
+  }
+  .touch-only {
+    display: none;
+    text-align: center;
+    max-width: 320px;
+    margin-bottom: 24px;
+  }
+  .touch-only h1 {
+    margin: 0 0 8px;
+    color: #ffd428;
+    font-size: 22px;
+    text-transform: uppercase;
+  }
+  .touch-only p {
+    margin: 0;
+    font-size: 16px;
+    color: #c9c0ae;
+  }
+  .touch .window {
+    display: none;
+  }
+  .touch .touch-only {
+    display: block;
   }
   .note {
     margin: 0;
