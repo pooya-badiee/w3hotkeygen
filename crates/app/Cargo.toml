@@ -1,0 +1,17 @@
+[package]
+name = "w3hk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Grid hotkeys for Warcraft III: generates CustomKeys.txt from the installed game"
+
+[dependencies]
+w3hk-assets = { path = "../assets" }
+w3hk-core = { path = "../core" }
+eframe = { version = "0.36", default-features = false, features = ["glow", "default_fonts"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+rfd = { version = "0.17", default-features = false }
+
+# Embeds the exe icon, version info and manifest; build-time only.
+[build-dependencies]
+winresource = "0.1"

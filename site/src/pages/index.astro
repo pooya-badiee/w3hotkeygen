@@ -1,0 +1,225 @@
+---
+import { REPO, EXE, SHA, cards } from "../site";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WC3 Grid Hotkeys</title>
+    <meta
+      name="description"
+      content="Grid hotkeys for Warcraft III that keep Attack on A. One screen, one Apply button, generated from your installed game."
+    />
+    <link rel="icon" type="image/png" href="/icon.png" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>WC3 Grid Hotkeys</h1>
+        <p class="pitch">
+          Grid hotkeys for Warcraft III that set themselves up from your installed game.
+        </p>
+      </header>
+
+      <section class="download">
+        <a class="btn" href={EXE}>Download for Windows</a>
+        <p class="small">
+          Run it, press Apply, then set <em>Options &gt; Input &gt; Preset Keybindings</em> to
+          Custom and restart the game.
+        </p>
+        <p class="small">
+          <a href={SHA}>SHA-256</a> · <a href={`${REPO}/releases`}>All releases</a>
+        </p>
+      </section>
+
+      <section class="cards">
+        {
+          cards.map((card) => (
+            <figure class="card">
+              <figcaption>
+                <h3>{card.title}</h3>
+              </figcaption>
+              <div class="board">
+                {card.rows.flat().map((cell) =>
+                  cell ? (
+                    <div class:list={["cell", cell.mark]}>
+                      <span class="key">{cell.key}</span>
+                      <span class="name">{cell.name}</span>
+                    </div>
+                  ) : (
+                    <div class="cell empty" />
+                  ),
+                )}
+              </div>
+            </figure>
+          ))
+        }
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Free and open source (MIT or Apache-2.0) · <a href={REPO}>Source</a>
+      </p>
+      <p class="small">
+        Not affiliated with or endorsed by Blizzard Entertainment. Warcraft is a trademark of
+        Blizzard Entertainment, Inc.
+      </p>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --bg: #0d0b08;
+    --panel: #1a1510;
+    --border: #5a4626;
+    --gold: #ffd428;
+    --gold-dim: #c9a34a;
+    --text: #e8e0cf;
+    --muted: #a39a88;
+    --blue: #1f3d78;
+    --blue-hi: #2c56a8;
+    color-scheme: dark;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse at top, #2a1f12 0%, var(--bg) 60%) fixed, var(--bg);
+    color: var(--text);
+    font: 17px/1.6 Georgia, "Times New Roman", serif;
+  }
+  main,
+  footer {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+  header {
+    text-align: center;
+    padding-top: 56px;
+  }
+  h1,
+  h2 {
+    color: var(--gold);
+    text-shadow: 0 2px 4px #000;
+    font-weight: bold;
+    letter-spacing: 0.02em;
+  }
+  h1 {
+    font-size: clamp(2rem, 6vw, 2.8rem);
+    margin: 0 0 4px;
+    text-transform: uppercase;
+  }
+  h2 {
+    font-size: 1.3rem;
+    margin: 0 0 12px;
+  }
+  .pitch {
+    color: var(--muted);
+    font-size: 1.1rem;
+    margin: 0;
+  }
+  a {
+    color: var(--gold-dim);
+  }
+  a:hover {
+    color: var(--gold);
+  }
+  section {
+    margin: 40px 0;
+  }
+  .download {
+    text-align: center;
+  }
+  .btn {
+    display: inline-block;
+    padding: 14px 36px;
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-shadow: 0 1px 2px #000;
+    background: linear-gradient(var(--blue-hi), var(--blue));
+    border: 3px solid var(--gold-dim);
+    border-radius: 6px;
+    box-shadow: 0 0 0 2px #000, 0 6px 18px #0009;
+  }
+  .btn:hover {
+    filter: brightness(1.2);
+  }
+  .small {
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+  .cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin: 20px 0;
+  }
+  .card {
+    margin: 0;
+    width: 260px;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+    box-shadow: inset 0 0 0 1px #000, 0 4px 14px #0008;
+  }
+  .card h3 {
+    margin: 0 0 10px;
+    color: var(--gold);
+    font-size: 1rem;
+    text-align: center;
+    text-shadow: 0 1px 2px #000;
+  }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+  }
+  .cell {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    border: 2px solid #2e2516;
+    border-radius: 3px;
+    text-align: center;
+    padding: 2px;
+  }
+  .cell.empty {
+    background: #0008;
+  }
+  .cell.good {
+    border-color: var(--gold);
+  }
+  .cell.bad {
+    border-color: #d22;
+  }
+  .cell .key {
+    color: var(--gold);
+    font-weight: bold;
+    font-size: 1.3rem;
+    line-height: 1.1;
+  }
+  .cell .name {
+    font-size: 0.62rem;
+    line-height: 1.1;
+    color: var(--muted);
+  }
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    padding-bottom: 40px;
+    text-align: center;
+  }
+</style>

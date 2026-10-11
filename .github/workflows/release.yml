@@ -1,0 +1,41 @@
+name: Release
+
+# Push a tag like v0.1.0 to build the exe and attach it to a GitHub Release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Picks up the pinned version from rust-toolchain.toml.
+      - run: rustup show
+
+      - run: cargo test --workspace
+      - run: cargo build --release -p w3hk
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir dist
+          cp target/release/w3hk.exe dist/w3hk.exe
+          cd dist && sha256sum w3hk.exe > w3hk.exe.sha256
+
+      # Proves the exe was built by this workflow from this commit.
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/w3hk.exe
+
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes

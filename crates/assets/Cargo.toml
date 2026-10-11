@@ -1,0 +1,10 @@
+[package]
+name = "w3hk-assets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+w3hk-core = { path = "../core" }
+w3hk-casc = { path = "../casc" }
+winreg = "0.56"

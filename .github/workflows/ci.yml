@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Picks up the pinned version from rust-toolchain.toml.
+      - run: rustup show
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo test --workspace
+      - run: cargo build --release -p w3hk
+
+      - name: Exe size
+        shell: bash
+        run: ls -l target/release/w3hk.exe

@@ -1,0 +1,9 @@
+[package]
+name = "w3hk-casc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Minimal bindings to CascLib: open a CASC storage, read and list its files"
+
+[build-dependencies]
+cmake = "0.1"
