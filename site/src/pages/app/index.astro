@@ -1,0 +1,185 @@
+---
+import "../../styles.css";
+
+const base = import.meta.env.BASE_URL;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WC3 Grid Hotkeys in your browser</title>
+    <meta
+      name="description"
+      content="Grid hotkeys for Warcraft III, in your browser. Reads your installed game, then downloads CustomKeys.txt."
+    />
+    <link rel="icon" type="image/png" href={`${base}icon.png`} />
+  </head>
+  <body>
+    <main id="w3hk" data-pkg={`${base}app/pkg/`}>
+      <header>
+        <h1>WC3 Grid Hotkeys</h1>
+        <p class="pitch">The same app, in your browser. It reads your installed game, then downloads your keys file.</p>
+      </header>
+
+      <section id="picker" class="picker">
+        <button id="pick" class="btn" type="button">Select your Warcraft III folder</button>
+        <p class="small">
+          Usually <code>C:\Program Files (x86)\Warcraft III</code>: the folder with
+          <code>Data</code> and <code>_retail_</code> in it.
+        </p>
+        <p class="small">
+          Your files stay on your computer. The page reads the game's art and unit data in your browser; nothing is
+          uploaded.
+        </p>
+        <p id="error" class="error" hidden></p>
+        <input id="folder-input" type="file" hidden />
+      </section>
+
+      <section id="screen" class="screen" hidden>
+        <canvas id="canvas"></canvas>
+        <p class="small">
+          Put the downloaded <code>CustomKeys.txt</code> in <code>Documents\Warcraft III\CustomKeyBindings</code>
+          (<code>OneDrive\Documents\…</code> if your Documents folder is in OneDrive), then in game set
+          <em>Options &gt; Input &gt; Preset Keybindings</em> to Custom and restart the game.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p><a href={base}>Download the Windows app</a> · Free and open source (MIT or Apache-2.0)</p>
+      <p class="small">
+        Not affiliated with or endorsed by Blizzard Entertainment. Warcraft is a trademark of Blizzard Entertainment,
+        Inc.
+      </p>
+    </footer>
+
+    <script>
+      // Picks the install folder, then hands its files to the WASM app
+      // (crates/web). Only the files the CASC reader opens are passed on:
+      // the root files, Data/config and the archives in Data/data.
+      type Files = Map<string, File>;
+
+      const root = document.getElementById("w3hk") as HTMLElement;
+      const picker = document.getElementById("picker") as HTMLElement;
+      const screen = document.getElementById("screen") as HTMLElement;
+      const error = document.getElementById("error") as HTMLElement;
+      const input = document.getElementById("folder-input") as HTMLInputElement;
+      const canvas = document.getElementById("canvas") as HTMLCanvasElement;
+      input.webkitdirectory = true;
+
+      // Fetched while the user picks.
+      const wasm = import(/* @vite-ignore */ `${root.dataset.pkg}w3hk_web.js`).then(async (m) => {
+        await m.default();
+        return m;
+      });
+
+      const wanted = (path: string) =>
+        !path.includes("/") ||
+        path.startsWith("Data/config/") ||
+        (path.startsWith("Data/data/") && path.split("/").length === 3);
+      const walked = (dir: string) => dir === "Data" || dir === "Data/data" || dir.startsWith("Data/config");
+
+      async function fromHandle(dir: FileSystemDirectoryHandle): Promise<Files> {
+        const files: Files = new Map();
+        async function walk(handle: FileSystemDirectoryHandle, prefix: string) {
+          for await (const [name, entry] of handle.entries()) {
+            const path = prefix + name;
+            if (entry.kind === "file") {
+              if (wanted(path)) files.set(path, await entry.getFile());
+            } else if (walked(path)) {
+              await walk(entry, `${path}/`);
+            }
+          }
+        }
+        await walk(dir, "");
+        return files;
+      }
+
+      function fromInput(list: FileList): Files {
+        const files: Files = new Map();
+        for (const file of Array.from(list)) {
+          const path = file.webkitRelativePath.split("/").slice(1).join("/");
+          if (wanted(path)) files.set(path, file);
+        }
+        return files;
+      }
+
+      function fail(message: string) {
+        error.textContent = message;
+        error.hidden = false;
+      }
+
+      async function run(files: Files, folder: string) {
+        if (!files.has(".build.info")) {
+          fail(
+            `“${folder}” isn't the Warcraft III folder: it has no .build.info. Pick the folder with Data and _retail_ in it.`,
+          );
+          return;
+        }
+        picker.hidden = true;
+        screen.hidden = false;
+        try {
+          const app = await wasm;
+          await app.start(canvas, files, folder);
+          canvas.focus();
+        } catch (e) {
+          picker.hidden = false;
+          screen.hidden = true;
+          fail(`Couldn't start: ${e}`);
+        }
+      }
+
+      document.getElementById("pick")!.addEventListener("click", async () => {
+        error.hidden = true;
+        // Chrome and Edge: read only the folders needed. Elsewhere, the
+        // browser lists the whole folder.
+        if ("showDirectoryPicker" in window) {
+          let dir: FileSystemDirectoryHandle;
+          try {
+            // @ts-expect-error: showDirectoryPicker is missing from TypeScript's DOM types.
+            dir = await window.showDirectoryPicker({ id: "wc3" });
+          } catch {
+            return; // Cancelled.
+          }
+          await run(await fromHandle(dir), dir.name);
+        } else {
+          input.click();
+        }
+      });
+
+      input.addEventListener("change", () => {
+        const list = input.files;
+        if (!list || list.length === 0) return;
+        void run(fromInput(list), list[0].webkitRelativePath.split("/")[0]);
+      });
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  .picker {
+    text-align: center;
+  }
+  code {
+    font-size: 0.9em;
+    color: var(--text);
+  }
+  .error {
+    color: #ff6a4d;
+  }
+  .screen {
+    text-align: center;
+    overflow-x: auto;
+  }
+  /* The app's fixed window size. */
+  #canvas {
+    width: 768px;
+    height: 490px;
+    display: block;
+    margin: 0 auto;
+    border-radius: 6px;
+    box-shadow: 0 6px 24px #000c;
+  }
+</style>

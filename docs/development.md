@@ -4,8 +4,8 @@
 - **Rust 1.95,** pinned in [rust-toolchain.toml](../rust-toolchain.toml). eframe 0.36 requires it.
 - **Release profile:** `opt-level="z"`, fat LTO, `codegen-units=1`, `panic=abort`, strip.
 - **Size:** the exe (MSVC) is about 5.8MB.
-- **Platforms:** Windows (MSVC) only.
-- **CI:** [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs `cargo test --workspace` and a release build on Windows.
+- **Platforms:** Windows (MSVC) for the exe; any desktop browser with WebGL2 for the web version.
+- **CI:** [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs `cargo test --workspace`, a release build on Windows, and clippy on the web crate for wasm32.
 - **Release:** push a `v*` tag. [.github/workflows/release.yml](../.github/workflows/release.yml) builds `w3hk.exe`, attaches it and its SHA-256 to a GitHub Release, and adds a build provenance attestation.
 - **Exe resources** ([crates/app/build.rs](../crates/app/build.rs)): icon, version info, and a manifest ([w3hk.manifest](../crates/app/assets/w3hk.manifest)) that runs as the user (`asInvoker`, no UAC prompt). The exe is unsigned; never pack it (UPX etc.), which antivirus flags.
 
@@ -20,8 +20,10 @@ cargo test -p w3hk-assets --test reference -- --nocapture  # data vs. the user's
 ```
 
 ## Website
-[site/](../site/) is the download page, a single static Astro page, live at <https://pooya-badiee.github.io/w3hotkeygen/>. [pages.yml](../.github/workflows/pages.yml) publishes it on every push to `main` that touches `site/`. Its download links point at the latest GitHub Release; the repo URL is the `REPO` constant in [site.ts](../site/src/site.ts).
+[site/](../site/) is the download page plus the web version at `/app` (see [web.md](web.md)), static Astro, live at <https://pooya-badiee.github.io/w3hotkeygen/>. [pages.yml](../.github/workflows/pages.yml) builds the WASM and publishes the site on every push to `main` that touches `site/` or the Rust code. Its download links point at the latest GitHub Release; the repo URL is the `REPO` constant in [site.ts](../site/src/site.ts). Shared styles are in [styles.css](../site/src/styles.css).
 ```sh
+cargo install wasm-bindgen-cli --version 0.2.129 --locked   # once; must match the wasm-bindgen crate
+tools/web/build.sh                      # WASM into site/public/app/pkg (gitignored)
 cd site && npm install && npm run dev   # local preview
 npm run build                           # type check (astro check), then static output in site/dist
 ```

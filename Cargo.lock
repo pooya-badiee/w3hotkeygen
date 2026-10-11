@@ -2150,6 +2150,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "w3hk-web"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "js-sys",
+ "w3hk-casc",
+ "w3hk-core",
+ "w3hk-ui",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

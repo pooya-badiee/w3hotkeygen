@@ -12,3 +12,6 @@ Thumbs.db
 node_modules/
 /site/dist/
 /site/.astro/
+
+# Web build output (crates/web, built by tools/web/build.sh)
+/site/public/app/pkg/

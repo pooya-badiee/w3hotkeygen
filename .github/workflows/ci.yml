@@ -21,3 +21,6 @@ jobs:
       - name: Exe size
         shell: bash
         run: ls -l target/release/w3hk.exe
+
+      # The web version (crates/web). Pages builds and publishes it.
+      - run: cargo clippy --target wasm32-unknown-unknown -p w3hk-web -- -D warnings
