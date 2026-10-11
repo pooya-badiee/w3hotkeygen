@@ -1,7 +1,7 @@
 //! Extracts every game file the web version uses (theme art, fonts, unit
 //! data) from the local install into one zlib-compressed pack for the site
 //! to serve. GitHub Pages doesn't compress unknown file types, so it's done here.
-//! `cargo run -p w3hk-ui --example pack -- site/public/app/game.pack`
+//! `cargo run -p w3hk-ui --example pack -- site/public/game.pack`
 
 use w3hk_core::pack;
 

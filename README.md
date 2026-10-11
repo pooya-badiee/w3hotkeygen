@@ -1,6 +1,6 @@
 # WC3 Grid Hotkeys
 
-Grid hotkeys for Warcraft III Reforged that keep Attack on A. [Download page](https://pooya-badiee.github.io/w3hotkeygen/)
+Grid hotkeys for Warcraft III Reforged that keep Attack on A. [Use it in your browser](https://pooya-badiee.github.io/w3hotkeygen/)
 
 Blizzard's built-in Grid preset puts every button on `QWER / ASDF / ZXCV`, which is great until you
 press A out of twenty years of habit and your army walks into the enemy instead of attack-moving.
@@ -28,7 +28,7 @@ you're on. After a patch, open it and press Apply again.
 
 **Reset** puts back whatever `CustomKeys.txt` you had before the first Apply.
 
-Rather not run an exe? The [web version](https://pooya-badiee.github.io/w3hotkeygen/app/) is the
+Rather not run an exe? The [web version](https://pooya-badiee.github.io/w3hotkeygen/) is the
 same app in your browser: set your keys and it downloads `CustomKeys.txt` for you to put in
 `Documents\Warcraft III\CustomKeyBindings`. It carries its own copy of the game's unit data, so
 after a patch it may lag behind the exe until it's updated.

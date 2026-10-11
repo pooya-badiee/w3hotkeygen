@@ -1,5 +1,5 @@
 //! A flat bundle of named files: the game files the web version ships
-//! (`site/public/app/game.pack`), extracted from an install with
+//! (`site/public/game.pack`), extracted from an install with
 //! `cargo run -p w3hk-ui --example pack`.
 //!
 //! Layout, little endian: `W3HKPACK`, entry count (u32), then per entry the

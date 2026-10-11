@@ -20,11 +20,11 @@ cargo test -p w3hk-assets --test reference -- --nocapture  # data vs. the user's
 ```
 
 ## Website
-[site/](../site/) is the download page plus the web version at `/app` (see [web.md](web.md)), static Astro, live at <https://pooya-badiee.github.io/w3hotkeygen/>. [pages.yml](../.github/workflows/pages.yml) builds the WASM and publishes the site on every push to `main` that touches `site/` or the Rust code. Its download links point at the latest GitHub Release; the repo URL is the `REPO` constant in [site.ts](../site/src/site.ts). Shared styles are in [styles.css](../site/src/styles.css).
+[site/](../site/) is one static Astro page, live at <https://pooya-badiee.github.io/w3hotkeygen/>: the web version (see [web.md](web.md)), with a small link to the Windows app under it. [pages.yml](../.github/workflows/pages.yml) builds the WASM and publishes the site on every push to `main` that touches `site/` or the Rust code. The Windows link points at the latest GitHub Release; the repo URL is the `REPO` constant in [site.ts](../site/src/site.ts).
 ```sh
 cargo install wasm-bindgen-cli --version 0.2.129 --locked   # once; must match the wasm-bindgen crate
-tools/web/build.sh                      # WASM into site/public/app/pkg (gitignored)
-cargo run -p w3hk-ui --example pack -- site/public/app/game.pack   # re-extract the web version's game files after a patch
+tools/web/build.sh                      # WASM into site/public/pkg (gitignored)
+cargo run -p w3hk-ui --example pack -- site/public/game.pack   # re-extract the web version's game files after a patch
 cd site && npm install && npm run dev   # local preview
 npm run build                           # type check (astro check), then static output in site/dist
 ```
@@ -38,4 +38,4 @@ npm run build                           # type check (astro check), then static 
 | `W3HK_SCREEN=credits` | Open straight to the Credits |
 
 ## Notes
-- Anything you extract from the game for poking around stays local. Never commit it. The one exception is the web version's `site/public/app/game.pack`, made by the `pack` example.
+- Anything you extract from the game for poking around stays local. Never commit it. The one exception is the web version's `site/public/game.pack`, made by the `pack` example.

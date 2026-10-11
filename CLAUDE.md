@@ -17,6 +17,6 @@ A small native app (Rust + egui) that generates Warcraft III `CustomKeys.txt` fi
 | Web version (egui on WASM, pure-Rust CASC reader) | [docs/web.md](docs/web.md) |
 
 ## Ground rules
-- **Game assets:** the exe ships none; it reads art, icons, fonts and data from the user's install at runtime. The web version ships them in `site/public/app/game.pack`, extracted from an install (the owner's decision, 2026-10-11). Re-extract after a patch, see [docs/web.md](docs/web.md).
+- **Game assets:** the exe ships none; it reads art, icons, fonts and data from the user's install at runtime. The web version ships them in `site/public/game.pack`, extracted from an install (the owner's decision, 2026-10-11). Re-extract after a patch, see [docs/web.md](docs/web.md).
 - **Keep the exe lean.** Check each new dependency's size cost before adding it.
 - **Keep the core pure.** `crates/core` does no IO, so it can target WASM for the web version.
