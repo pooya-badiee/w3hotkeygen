@@ -14,6 +14,7 @@ A small native app (Rust + egui) that generates Warcraft III `CustomKeys.txt` fi
 | `CustomKeys.txt` format and engine quirks | [docs/customkeys-format.md](docs/customkeys-format.md) |
 | Community pain points and competing tools | [docs/community-research.md](docs/community-research.md) |
 | Build, toolchain, dev tools | [docs/development.md](docs/development.md) |
+| Web version (egui on WASM, pure-Rust CASC reader) | [docs/web.md](docs/web.md) |
 
 ## Ground rules
 - **Never ship Blizzard assets.** All art, icons and fonts are read from the user's install at runtime.

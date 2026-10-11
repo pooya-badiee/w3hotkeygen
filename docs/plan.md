@@ -62,7 +62,8 @@ Because the file is regenerated from the installed game every time, a patch neve
 4. **Grid generator** (done; works in-game) for abilities, including the quirks in [customkeys-format.md](customkeys-format.md#engine-quirks): toggles (`Unhotkey`/`Unbuttonpos`), hero learn (`Researchhotkey`), worker build menus (`AHbu` etc. plus `CmdBuild*`), irreversible morphs, hidden abilities, multi-tier upgrades.
 5. **Keyboard layouts** (QWERTZ, AZERTY): done by hand in the Grid panel; presets later if wanted.
 6. **Verify in-game** (done: the applied file works in-game). The edge cases under [Risks](#5-risks) are still untested one by one.
-7. Later, if wanted: Classic (MPQ) support, campaign and neutral units.
+7. **Web version:** the same app on WASM, with the result downloaded instead of written. See [web.md](web.md).
+8. Later, if wanted: Classic (MPQ) support, campaign and neutral units.
 
 ## 3. Out of scope
 - Per-unit editing, drag and drop, unit browser.

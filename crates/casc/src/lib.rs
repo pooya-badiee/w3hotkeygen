@@ -1,116 +1,125 @@
-//! Minimal bindings to CascLib (vendor/CascLib, MIT): open a game's CASC
-//! storage and read a file by name. Only the calls this app needs are
-//! declared, by hand, from `CascLib.h`.
+//! Reads files out of a Warcraft III (Reforged) CASC storage, in pure Rust so
+//! it also runs in the browser. [`Casc`] works over any [`Source`]; on native,
+//! [`Storage`] wraps it over the file system with a blocking API.
 
-use std::ffi::{CString, c_void};
+mod blte;
+mod index;
+mod storage;
+mod tvfs;
+
+#[cfg(all(windows, feature = "casclib"))]
+pub mod casclib;
+
 use std::fmt;
-use std::os::windows::ffi::OsStrExt;
-use std::path::Path;
-use std::ptr;
+use std::future::Future;
+use std::io;
 
-mod ffi {
-    use std::ffi::c_void;
+pub use storage::Casc;
 
-    pub type Handle = *mut c_void;
+/// The first 9 bytes of an encoded key: all that indexes and TVFS store.
+type EKey = [u8; 9];
 
-    /// `CASC_OPEN_BY_NAME`.
-    pub const OPEN_BY_NAME: u32 = 0;
-
-    // `WINAPI` is stdcall on 32-bit Windows; "system" matches it everywhere.
-    unsafe extern "system" {
-        /// `params` is a wide string: CascLib is built with `CASC_UNICODE`.
-        pub fn CascOpenStorage(params: *const u16, locale_mask: u32, storage: *mut Handle) -> bool;
-        pub fn CascCloseStorage(storage: Handle) -> bool;
-        pub fn CascOpenFile(storage: Handle, name: *const c_void, locale: u32, flags: u32, file: *mut Handle) -> bool;
-        pub fn CascGetFileSize64(file: Handle, size: *mut u64) -> bool;
-        pub fn CascReadFile(file: Handle, buffer: *mut c_void, to_read: u32, read: *mut u32) -> bool;
-        pub fn CascCloseFile(file: Handle) -> bool;
-    }
-
-    unsafe extern "C" {
-        pub fn GetCascError() -> u32;
-    }
+/// The install folder's files. Paths are relative to the install root and use
+/// `/`, e.g. `Data/data/data.003`.
+pub trait Source {
+    /// `len` bytes from `offset`, or the rest of the file if `len` is `None`.
+    fn read(&self, path: &str, offset: u64, len: Option<u64>) -> impl Future<Output = io::Result<Vec<u8>>>;
+    /// File names in a folder.
+    fn list(&self, dir: &str) -> impl Future<Output = io::Result<Vec<String>>>;
 }
 
-/// A failed CascLib call, with its error code.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Error {
-    pub call: &'static str,
-    pub code: u32,
+#[derive(Debug, Clone)]
+pub enum Error {
+    Io(String),
+    NotFound,
+    Format(&'static str),
+    Unsupported(&'static str),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} failed (error {})", self.call, self.code)
+        match self {
+            Error::Io(e) => write!(f, "{e}"),
+            Error::NotFound => write!(f, "file not found"),
+            Error::Format(what) => write!(f, "{what}"),
+            Error::Unsupported(what) => write!(f, "unsupported: {what}"),
+        }
     }
 }
 
 impl std::error::Error for Error {}
 
-fn last_error(call: &'static str) -> Error {
-    Error { call, code: unsafe { ffi::GetCascError() } }
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Error::Io(e.to_string())
+    }
 }
 
-/// An open CASC storage: the game's install folder.
-pub struct Storage(ffi::Handle);
+#[cfg(not(target_arch = "wasm32"))]
+pub use native::{FsSource, Storage};
 
-impl Storage {
-    pub fn open(path: &Path) -> Result<Storage, Error> {
-        let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
-        if wide.contains(&0) {
-            return Err(Error { call: "CascOpenStorage", code: 0 });
-        }
-        let params: Vec<u16> = wide.into_iter().chain([0]).collect();
-        let mut handle = ptr::null_mut();
-        if unsafe { ffi::CascOpenStorage(params.as_ptr(), 0, &mut handle) } {
-            Ok(Storage(handle))
-        } else {
-            Err(last_error("CascOpenStorage"))
-        }
-    }
+#[cfg(not(target_arch = "wasm32"))]
+mod native {
+    use std::fs::{self, File};
+    use std::future::Future;
+    use std::io::{self, Read, Seek, SeekFrom};
+    use std::path::{Path, PathBuf};
+    use std::pin::pin;
+    use std::task::{Context, Poll, Waker};
 
-    /// A whole file, by name, e.g. `war3.w3mod:units\humanunitfunc.txt`.
-    pub fn read(&self, name: &str) -> Result<Vec<u8>, Error> {
-        let name = CString::new(name).map_err(|_| Error { call: "CascOpenFile", code: 0 })?;
-        let mut file = ptr::null_mut();
-        if !unsafe { ffi::CascOpenFile(self.0, name.as_ptr().cast(), 0, ffi::OPEN_BY_NAME, &mut file) } {
-            return Err(last_error("CascOpenFile"));
-        }
-        let file = File(file);
-        let mut size = 0u64;
-        if !unsafe { ffi::CascGetFileSize64(file.0, &mut size) } {
-            return Err(last_error("CascGetFileSize64"));
-        }
-        let mut out = vec![0u8; size as usize];
-        let mut done = 0;
-        while done < out.len() {
-            let want = (out.len() - done).min(u32::MAX as usize) as u32;
-            let mut got = 0u32;
-            let buf: *mut c_void = out[done..].as_mut_ptr().cast();
-            if !unsafe { ffi::CascReadFile(file.0, buf, want, &mut got) } {
-                return Err(last_error("CascReadFile"));
+    use crate::{Casc, Error, Source};
+
+    /// The install folder on disk.
+    pub struct FsSource(PathBuf);
+
+    impl Source for FsSource {
+        async fn read(&self, path: &str, offset: u64, len: Option<u64>) -> io::Result<Vec<u8>> {
+            let mut file = File::open(self.0.join(path))?;
+            file.seek(SeekFrom::Start(offset))?;
+            let mut out = Vec::new();
+            match len {
+                Some(len) => {
+                    out.resize(len as usize, 0);
+                    file.read_exact(&mut out)?;
+                }
+                None => {
+                    file.read_to_end(&mut out)?;
+                }
             }
-            if got == 0 {
-                break;
-            }
-            done += got as usize;
+            Ok(out)
         }
-        out.truncate(done);
-        Ok(out)
+
+        async fn list(&self, dir: &str) -> io::Result<Vec<String>> {
+            fs::read_dir(self.0.join(dir))?
+                .map(|e| e.map(|e| e.file_name().to_string_lossy().into_owned()))
+                .collect()
+        }
     }
-}
 
-impl Drop for Storage {
-    fn drop(&mut self) {
-        unsafe { ffi::CascCloseStorage(self.0) };
+    /// An open storage on disk: the game's install folder.
+    pub struct Storage(Casc<FsSource>);
+
+    impl Storage {
+        pub fn open(path: &Path) -> Result<Storage, Error> {
+            block_on(Casc::open(FsSource(path.to_path_buf()))).map(Storage)
+        }
+
+        /// A whole file, by name, e.g. `war3.w3mod:units\humanunitfunc.txt`.
+        pub fn read(&self, name: &str) -> Result<Vec<u8>, Error> {
+            block_on(self.0.read(name))
+        }
+
+        /// Names of the files under `prefix`; see [`Casc::list`].
+        pub fn list(&self, prefix: &str) -> Result<Vec<String>, Error> {
+            block_on(self.0.list(prefix))
+        }
     }
-}
 
-/// Closes an open file on every return path.
-struct File(ffi::Handle);
-
-impl Drop for File {
-    fn drop(&mut self) {
-        unsafe { ffi::CascCloseFile(self.0) };
+    /// [`FsSource`] never waits, so its futures finish on the first poll.
+    fn block_on<F: Future>(future: F) -> F::Output {
+        match pin!(future).poll(&mut Context::from_waker(Waker::noop())) {
+            Poll::Ready(out) => out,
+            Poll::Pending => unreachable!("file system reads finish on the first poll"),
+        }
     }
 }

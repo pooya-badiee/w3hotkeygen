@@ -3,7 +3,18 @@ name = "w3hk-casc"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Minimal bindings to CascLib: open a CASC storage, read and list its files"
+description = "Reads files out of a Warcraft III CASC storage, in pure Rust"
+
+[features]
+# Builds CascLib too, to compare against (examples/compare.rs).
+casclib = ["dep:cmake"]
+
+[dependencies]
+miniz_oxide = "0.9"
 
 [build-dependencies]
-cmake = "0.1"
+cmake = { version = "0.1", optional = true }
+
+[[example]]
+name = "compare"
+required-features = ["casclib"]

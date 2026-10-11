@@ -1,8 +1,15 @@
-//! Builds CascLib (vendor/CascLib, MIT) as a static library with CMake.
-
-use std::path::Path;
+//! With the `casclib` feature, builds CascLib (vendor/CascLib, MIT) as a
+//! static library with CMake, to compare the pure-Rust reader against.
 
 fn main() {
+    #[cfg(feature = "casclib")]
+    casclib();
+}
+
+#[cfg(feature = "casclib")]
+fn casclib() {
+    use std::path::Path;
+
     let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vendor/CascLib");
     println!("cargo:rerun-if-changed={}", src.join("src").display());
     println!("cargo:rerun-if-changed={}", src.join("CMakeLists.txt").display());

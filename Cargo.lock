@@ -2142,6 +2142,7 @@ name = "w3hk-casc"
 version = "0.1.0"
 dependencies = [
  "cmake",
+ "miniz_oxide 0.9.1",
 ]
 
 [[package]]
