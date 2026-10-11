@@ -18,26 +18,13 @@ The same egui app, compiled to WASM and served from its own page on the site (`/
 - **No Blizzard assets are shipped.** Art, fonts and data still come from the user's folder.
 
 ## The CASC reader
-CascLib is C++, so it doesn't build for `wasm32-unknown-unknown`. It gets replaced by a small read-only reader written in pure Rust. The app only needs the calls "open storage" and "read file by name" ([crates/casc/src/lib.rs](../crates/casc/src/lib.rs)).
+Done: [crates/casc](../crates/casc), described in [game-files.md](game-files.md#reader-our-own-in-pure-rust). It replaced CascLib, which is C++ and doesn't build for `wasm32-unknown-unknown`.
 
-Warcraft III layout, as CascLib reads it:
-1. `.build.info` → build config → encoding key and `vfs-root` key.
-2. `Data\data\*.idx` → where each encoded key sits in `data.###`.
-3. BLTE blocks: plain and zlib (`miniz_oxide`, pure Rust). Check whether any of the files we read are encrypted.
-4. Encoding table: content key → encoded key.
-5. TVFS root (`vfs-root`), which resolves names like `war3.w3mod:units\humanunitfunc.txt`.
-
-The reader takes a random-access source (a trait), backed by `std::fs` on native and by `File.slice()` on the web.
-
-**Open question: async reads.** Browser reads are async, and the native reader is sync. The options are:
-- an async source trait, with native using a trivial blocking executor, or
-- running the loader in a Web Worker and using `FileReaderSync`, so the reader stays sync.
-
-The app already loads game data and the theme off the UI thread and polls for the result, so either option fits that flow.
+**Async reads:** browser reads are async, so the `Source` trait is async. On native, `Storage` runs it with a trivial blocking executor, because file system reads finish on the first poll. On the web, `Casc` is awaited directly.
 
 ## Build order
-1. **Pure-Rust CASC reader.** Test it byte for byte against CascLib on native, for every file the app reads.
-2. **Switch the exe to it**, then drop CascLib, CMake and `vendor/`. This gives one code path, a smaller exe and simpler CI.
+1. **Done: pure-Rust CASC reader.** Checked byte for byte against CascLib on native, for every file the app reads.
+2. **Done: switched the exe to it** and dropped CascLib, CMake and `vendor/`.
 3. **`cfg`-split the app.** Install detection (`winreg`), `keyfile.rs` and `config.rs` become native-only. Add a wasm entry point (`eframe::WebRunner`).
 4. **Web loader:** folder picker, then the file source, then the existing theme and data loading.
 5. **Output:** the download, the optional import of an existing file, and the status line text.

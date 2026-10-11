@@ -40,7 +40,7 @@ are both good.
 
 ## Building
 
-Needs Rust (version pinned in `rust-toolchain.toml`), CMake and MSVC for the CascLib build.
+Needs Rust (version pinned in `rust-toolchain.toml`) and MSVC.
 
 ```sh
 cargo run -p w3hk

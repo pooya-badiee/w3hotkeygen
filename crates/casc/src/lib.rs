@@ -7,9 +7,6 @@ mod index;
 mod storage;
 mod tvfs;
 
-#[cfg(all(windows, feature = "casclib"))]
-pub mod casclib;
-
 use std::fmt;
 use std::future::Future;
 use std::io;

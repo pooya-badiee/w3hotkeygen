@@ -2,14 +2,12 @@
 
 ## Toolchain
 - **Rust 1.95,** pinned in [rust-toolchain.toml](../rust-toolchain.toml). eframe 0.36 requires it.
-- **CascLib build:** cmake and MSVC. CascLib's bundled zlib is used.
 - **Release profile:** `opt-level="z"`, fat LTO, `codegen-units=1`, `panic=abort`, strip.
-- **Size:** the exe (MSVC) is about 6.3MB.
+- **Size:** the exe (MSVC) is about 5.8MB.
 - **Platforms:** Windows (MSVC) only.
 - **CI:** [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs `cargo test --workspace` and a release build on Windows.
 - **Release:** push a `v*` tag. [.github/workflows/release.yml](../.github/workflows/release.yml) builds `w3hk.exe`, attaches it and its SHA-256 to a GitHub Release, and adds a build provenance attestation.
 - **Exe resources** ([crates/app/build.rs](../crates/app/build.rs)): icon, version info, and a manifest ([w3hk.manifest](../crates/app/assets/w3hk.manifest)) that runs as the user (`asInvoker`, no UAC prompt). The exe is unsigned; never pack it (UPX etc.), which antivirus flags.
-- `vendor/` holds only the CascLib files the CMake build uses (plus its LICENSE and README), built by `crates/casc`.
 
 ## Commands
 ```sh

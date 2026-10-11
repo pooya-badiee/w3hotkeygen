@@ -472,7 +472,7 @@ const CREDITS: [(&str, &str); 6] = [
     ),
     (
         "Game files",
-        "CascLib by Ladislav Zezula (MIT).",
+        "Our own CASC reader, written with CascLib by Ladislav Zezula (MIT) as the reference.",
     ),
     ("Interface", "egui and eframe by Emil Ernerfelt and contributors (MIT or Apache-2.0)."),
     (

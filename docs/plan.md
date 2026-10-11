@@ -1,6 +1,6 @@
 # WC3 Grid Hotkeys: Plan
 
-> Written before most of the code. Where it disagrees with the topic docs (listed in the [README](../README.md)), they win: game files are read with CascLib, not casc-rs, and the UI uses the Reforged web UI art.
+> Written before most of the code. Where it disagrees with the topic docs (listed in the [README](../README.md)), they win: game files are read with our own pure-Rust CASC reader, not casc-rs, and the UI uses the Reforged web UI art.
 
 ## 1. Product
 
@@ -56,7 +56,7 @@ Grid            Commands               Inventory
 Because the file is regenerated from the installed game every time, a patch never leaves it stale. That replaces the old merge/migration plan.
 
 ## 2. Build order
-1. **Done:** install detection, CascLib game files, themed window, `CustomKeys.txt` path, Windows CI and release workflow.
+1. **Done:** install detection, CASC game files, themed window, `CustomKeys.txt` path, Windows CI and release workflow.
 2. **Settings screen + writer for the non-data keys** (done: key boxes, clash check, Apply, Reset): commands (`CmdAttack`, `CmdStop`, `CmdMove`, `CmdHoldPos`, `CmdPatrol`) and inventory (`itm1`-`itm6`). Key boxes, clash check, backup, write. This needs no game data.
 3. **Read game data** (done: melee roster, command cards, default positions and keys; see [game-files.md](game-files.md#unit-and-ability-data-war3w3modunits)): units, their abilities, and each button's default position, from `units\*func.txt`, `*strings.txt` and the SLKs via CASC.
 4. **Grid generator** (done; works in-game) for abilities, including the quirks in [customkeys-format.md](customkeys-format.md#engine-quirks): toggles (`Unhotkey`/`Unbuttonpos`), hero learn (`Researchhotkey`), worker build menus (`AHbu` etc. plus `CmdBuild*`), irreversible morphs, hidden abilities, multi-tier upgrades.
@@ -74,7 +74,7 @@ Because the file is regenerated from the installed game every time, a patch neve
 ## 4. Tech stack
 ```
 crates/app     native egui exe: the screen, config, file IO (backup + write)
-crates/assets  native only: install detection, CustomKeys path, CascLib reading
+crates/assets  native only: install detection, CustomKeys path, game file reading
 crates/core    pure, no IO: game data model (done) + generate(choices) -> String
 ```
 - `crates/core` stays pure so a web version stays possible later.

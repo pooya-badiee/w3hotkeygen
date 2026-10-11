@@ -2,14 +2,19 @@
 
 Code: [crates/assets/src/game_files.rs](../crates/assets/src/game_files.rs).
 
-## Reader: CascLib
+## Reader: our own, in pure Rust
+[crates/casc](../crates/casc) is a small read-only reader, so the same code runs natively and in the browser (see [web.md](web.md)). It reads through a `Source` trait: the file system on native, browser `File` handles on the web.
+
+How Warcraft III's storage is read. The encoding table isn't needed, because TVFS entries point straight at encoded keys:
+1. `.build.info`: the active row's `Build Key` → `Data/config/xx/yy/<key>`, the build config.
+2. Build config: `vfs-root` and `vfs-N` (content key, encoded key). An entry whose key is a `vfs-N` key is a nested tree, so `war3.w3mod:units\x` is `units/x` inside the tree `war3.w3mod`.
+3. `Data/data/XXyyyyyyyy.idx` (version 7; only the newest version per bucket counts): 9-byte encoded key → archive, offset, size.
+4. `Data/data/data.###`: a 30-byte local header, then BLTE (plain `N` and zlib `Z` frames).
+5. TVFS: a prefix tree of name fragments. Leaves point through the VFS and container file tables at an encoded key. Nested trees load the first time a name needs them.
+
+- It opens in about 13 ms on 3.0.0.
+- **Checked against CascLib** (C++, MIT, which this used before) byte for byte on 12,010 files: units, `enus` units, fonts and all web UI art. CascLib stays the reference for the format. Commit `fd8a09c` has the comparison tool (`examples/compare.rs`, `--features casclib`).
 - **casc-rs (pure Rust, GPL-3.0): rejected.** It only sees the top-level TVFS (291 entries: binaries plus `war3.w3mod`). It doesn't descend into the nested `war3.w3mod` VFS where all game data lives, and its TVFS parser is private.
-- **CascLib (C++, MIT): used.** The C++ source is vendored in [vendor/CascLib](../vendor/CascLib). Our own bindings in [crates/casc](../crates/casc) build it with CMake and declare by hand only the calls we use: open storage and read a file.
-  - It sees 175,026 files and opens in about 0.6s on 3.0.0.
-  - Built with `CASC_UNICODE`, so install paths are passed as wide strings.
-  - Stripped from the vendored copy: everything the CMake static build doesn't use (`.git`, `listfile/`, project files, packaging, tests, DLL entry point, unused zlib parts).
-  - Build needs cmake and MSVC.
-  - We replaced the `casclib-rs` bindings (`wc3tools`, `w3champions` and `clemenscodes` forks) with our own, because they have no license and so can't be redistributed.
 - **Classic MPQ is not supported.** Classic installs aren't detected. The candidate crate is `war3-mpq`.
 
 ## Path syntax

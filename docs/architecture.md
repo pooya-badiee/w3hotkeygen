@@ -4,13 +4,13 @@ A pure generator, a native layer that reads the game, and the app on top.
 
 ```
 crates/app      native exe (egui/eframe, glow). Screens, theme, config.
-crates/assets   native only. Install detection + game file reading (CascLib).
+crates/assets   native only. Install detection + game file reading.
                 game_data.rs reads the unit/ability files and hands them to core.
 crates/core     pure: parses game data (data.rs, ini.rs, slk.rs) into units and command
                 cards, and generates the grid CustomKeys.txt from it (grid.rs).
                 No IO, so it also compiles to WASM for the future web UI.
-crates/casc     minimal hand-written bindings to CascLib; builds it with CMake.
-vendor/CascLib  CascLib C++ source (MIT), see game-files.md.
+crates/casc     pure-Rust, read-only CASC reader over any file source (disk or
+                browser), see game-files.md.
 ```
 
 ## App (`crates/app`)
