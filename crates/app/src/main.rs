@@ -4,7 +4,6 @@ mod app;
 mod config;
 mod devshot;
 mod keyfile;
-mod theme;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {

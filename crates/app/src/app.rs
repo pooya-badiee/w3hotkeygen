@@ -8,12 +8,13 @@ use std::time::{Duration, Instant};
 use eframe::egui::{self, Color32, FontId, Rect, RichText, UiBuilder, vec2};
 use w3hk_assets::{Found, GameFiles, Install, custom_keys_path, deep_scan, find_all, validate};
 use w3hk_core::data::GameData;
-use w3hk_core::{Key, Keys, Slot};
+use w3hk_core::{Keys, Slot};
+use w3hk_ui::panels::{self, centered_row, small, small_link, subheading};
+use w3hk_ui::theme::{self, ERROR, Theme};
 
 use crate::config::Config;
 use crate::devshot::DevShot;
 use crate::keyfile;
-use crate::theme::{self, Card, ERROR, GOLD, KeyState, TEXT, Theme, ThemeLoader};
 
 pub struct App {
     config: Config,
@@ -70,6 +71,27 @@ impl Ready {
             ctx.request_repaint();
         });
         Ready { install, origin, others, save_error, keys_file, status: None, status_at: f64::NEG_INFINITY, data: None, data_loader: Some(rx) }
+    }
+}
+
+/// Theme art decoded on a worker thread, uploaded on the UI thread.
+struct ThemeLoader(Receiver<Result<theme::Decoded, String>>);
+
+impl ThemeLoader {
+    fn spawn(ctx: &egui::Context, install: Install) -> Self {
+        let (tx, rx) = mpsc::channel();
+        let ctx = ctx.clone();
+        thread::spawn(move || {
+            let files = GameFiles::open(&install).map_err(|e| e.to_string());
+            let _ = tx.send(files.map(|f| theme::decode(|path| f.read(path))));
+            ctx.request_repaint();
+        });
+        ThemeLoader(rx)
+    }
+
+    /// `Some` once loading finished.
+    fn poll(&self, ctx: &egui::Context) -> Option<Result<Theme, String>> {
+        Some(self.0.try_recv().ok()?.map(|d| Theme::upload(ctx, d)))
     }
 }
 
@@ -207,9 +229,6 @@ enum Action {
 const APPLIED: &str =
     "Applied. In game, set Options > Input > Preset Keybindings to Custom, and restart the game if it's running.";
 
-/// Seconds a new status message takes to fade from white to its colour.
-const STATUS_FLASH: f32 = 0.8;
-
 /// Longest we wait for game art before showing the fallback style.
 const FIRST_PAINT_TIMEOUT: Duration = Duration::from_secs(3);
 
@@ -236,8 +255,10 @@ impl eframe::App for App {
             return;
         }
 
-        if let Some(slot) = self.listening {
-            self.capture_key(&ctx, slot);
+        if let Some(slot) = self.listening
+            && panels::capture_key(&ctx, &mut self.keys, slot)
+        {
+            self.listening = None;
         }
         if let Screen::Ready(r) = &mut self.screen
             && let Some(result) = r.data_loader.as_ref().and_then(|rx| rx.try_recv().ok())
@@ -271,7 +292,9 @@ impl eframe::App for App {
             theme::heading(ui, "WC3 Grid Hotkeys", 24.0);
             ui.add_space(8.0);
             action = match &mut self.screen {
-                _ if self.credits => credits_ui(ui, theme),
+                _ if self.credits => {
+                    if panels::credits(ui, theme, ALSO) { Action::Credits } else { Action::None }
+                }
                 Screen::Ready(r) => ready_ui(ui, theme, r, &self.keys, self.listening),
                 Screen::Locate(l) => locate_ui(ui, theme, l),
             };
@@ -281,19 +304,11 @@ impl eframe::App for App {
         let footer = match (&self.theme_loader, &self.theme_error) {
             (Some(_), _) => "Loading game art…".to_string(),
             (_, Some(e)) => format!("Game art unavailable: {e}"),
-            _ => "Unofficial fan tool. Not affiliated with or endorsed by Blizzard Entertainment.".to_string(),
+            _ => panels::DISCLAIMER.to_string(),
         };
-        let foot = Rect::from_min_max(content.left_bottom() + vec2(0.0, -4.0), content.right_bottom() + vec2(0.0, 12.0));
-        ui.scope_builder(UiBuilder::new().max_rect(foot), |ui| {
-            centered_row(ui, "footer", |ui| {
-                ui.spacing_mut().item_spacing.x = 8.0;
-                ui.label(RichText::new(footer).size(12.0).color(Color32::from_gray(150)));
-                let color = ui.visuals().hyperlink_color;
-                if ui.link(RichText::new("Credits").size(12.0).color(color)).clicked() {
-                    action = Action::Credits;
-                }
-            });
-        });
+        if panels::footer(ui, content, &footer) {
+            action = Action::Credits;
+        }
 
         if let Screen::Locate(Locate { scan: Some(scan), .. }) = &self.screen {
             if let Ok(found) = scan.result.try_recv() {
@@ -310,33 +325,6 @@ impl eframe::App for App {
 }
 
 impl App {
-    /// While a key box is listening: a letter sets it, a digit sets that
-    /// numpad key (the top-row digits are control groups), Delete or
-    /// Backspace clears it, Esc cancels.
-    fn capture_key(&mut self, ctx: &egui::Context, slot: Slot) {
-        let pressed = ctx.input(|i| {
-            i.events.iter().find_map(|e| match e {
-                egui::Event::Key { key, pressed: true, .. } => Some(*key),
-                _ => None,
-            })
-        });
-        let Some(key) = pressed else { return };
-        if key == egui::Key::Escape {
-            self.listening = None;
-        } else if matches!(key, egui::Key::Delete | egui::Key::Backspace) {
-            self.keys.set(slot, Key::NONE);
-            self.listening = None;
-        } else if let [c] = key.name().as_bytes() {
-            let key = match c {
-                b'A'..=b'Z' | b'a'..=b'z' => Key::letter(*c as char),
-                b'0'..=b'9' => Key::numpad(c - b'0'),
-                _ => return,
-            };
-            self.keys.set(slot, key);
-            self.listening = None;
-        }
-    }
-
     fn set_status(&mut self, ctx: &egui::Context, status: Option<Result<String, String>>) {
         if let Screen::Ready(r) = &mut self.screen {
             r.status = status;
@@ -451,75 +439,13 @@ impl App {
     }
 }
 
-/// The keys in the user's file, with clashing commands and inventory keys put
-/// back to their defaults, and a status line saying which ones changed.
+/// The keys in the user's file; see [`panels::read_keys`].
 fn load_keys(file: Option<&Path>) -> (Keys, Option<String>) {
-    let mut keys = file.map(keyfile::load).unwrap_or_default();
-    let changed = keys.repair();
-    if changed.is_empty() {
-        return (keys, None);
-    }
-    let list: Vec<String> =
-        changed.iter().map(|&(slot, old)| format!("{} {} (was {})", slot.label(), keys.get(slot).label(), old.label())).collect();
-    (keys, Some(format!("Some of your file's keys clashed with the grid, so these are back to default: {}.", list.join(", "))))
+    panels::read_keys(&file.map(keyfile::read).unwrap_or_default())
 }
 
-/// Who made what this app is built from. Shown in place of the screen.
-const CREDITS: [(&str, &str); 6] = [
-    (
-        "Game art",
-        "Icons, art and fonts belong to Blizzard Entertainment. They're read from your Warcraft III install; none are included.",
-    ),
-    (
-        "Game files",
-        "Our own CASC reader, written with CascLib by Ladislav Zezula (MIT) as the reference.",
-    ),
-    ("Interface", "egui and eframe by Emil Ernerfelt and contributors (MIT or Apache-2.0)."),
-    (
-        "Fonts",
-        "Before the game's fonts load: Ubuntu Light (Ubuntu Font Licence), Hack (MIT), Noto Emoji (OFL) and emoji-icon-font (MIT).",
-    ),
-    ("Also", "image, rfd, winreg and the other Rust crates they use (MIT, Apache-2.0 and similar)."),
-    (
-        "Thanks",
-        "The Warcraft III hotkey community: clemenscodes' warcraft-hotkey-editor, tlo9's Warcraft-3-Keybinds and the jcfieldsdev hotkey editor.",
-    ),
-];
-
-fn credits_ui(ui: &mut egui::Ui, theme: Option<&Theme>) -> Action {
-    let mut action = Action::None;
-    subheading(ui, "Credits");
-    ui.add_space(6.0);
-    egui::Grid::new("credits").num_columns(2).spacing(vec2(16.0, 10.0)).show(ui, |ui| {
-        for (what, who) in CREDITS {
-            ui.label(RichText::new(what).size(14.0).color(GOLD));
-            ui.add(egui::Label::new(RichText::new(who).size(14.0).color(TEXT)).wrap());
-            ui.end_row();
-        }
-    });
-    ui.add_space(10.0);
-    let license = format!("WC3 Grid Hotkeys {}, licensed MIT or Apache-2.0.", env!("CARGO_PKG_VERSION"));
-    ui.label(RichText::new(license).size(13.0).color(Color32::from_gray(160)));
-    ui.add_space(12.0);
-    if theme::button(ui, theme, "Back", true).clicked() {
-        action = Action::Credits;
-    }
-    action
-}
-
-fn subheading(ui: &mut egui::Ui, text: &str) {
-    ui.label(RichText::new(text).size(18.0).color(GOLD));
-}
-
-fn small(ui: &mut egui::Ui, text: String) -> egui::Response {
-    ui.add(egui::Label::new(RichText::new(text).size(13.0).color(Color32::from_gray(160))).truncate())
-}
-
-/// Sized text loses the link colour to the text override, so it's set here.
-fn small_link(ui: &mut egui::Ui, text: &str) -> egui::Response {
-    let color = ui.visuals().hyperlink_color;
-    ui.link(RichText::new(text).size(13.0).color(color))
-}
+/// The credits' "Also" row.
+const ALSO: &str = "image, rfd, winreg, miniz_oxide and the other Rust crates they use (MIT, Apache-2.0 and similar).";
 
 fn ready_ui(ui: &mut egui::Ui, theme: Option<&Theme>, r: &Ready, keys: &Keys, listening: Option<Slot>) -> Action {
     let mut action = Action::None;
@@ -528,70 +454,10 @@ fn ready_ui(ui: &mut egui::Ui, theme: Option<&Theme>, r: &Ready, keys: &Keys, li
         ui.colored_label(ERROR, e);
     }
 
-    let clashes = keys.clashes();
-    let state = |s: Slot| match () {
-        _ if listening == Some(s) => KeyState::Listening,
-        _ if clashes.contains(&s) => KeyState::Clash,
-        _ => KeyState::Normal,
-    };
-    let key_cell = |ui: &mut egui::Ui, rect: Rect, slot: Slot| {
-        let id = ui.id().with(format!("key {slot:?}"));
-        theme::key_cell(ui, rect, id, &keys.get(slot).label(), state(slot)).clicked()
-    };
-
-    // Three cards side by side, like the game's hotkey menu: the grid, the
-    // commands (icons and key boxes in the card's frame) and the inventory.
-    let scale = 0.9;
-    let gap = 16.0;
-    // The commands panel is the size of the grid card.
-    let [grid_size, cmd_size, items_size] = [Card::Grid, Card::Grid, Card::Items].map(|c| c.size(scale));
-    let width = grid_size.x + cmd_size.x + items_size.x + 2.0 * gap;
-    let area = Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), grid_size.y.max(items_size.y)));
-    let left = area.left() + (area.width() - width) / 2.0;
-    // The buttons and footnote line up with the cards' edges.
-    let panels = Rect::from_min_max(egui::pos2(left, area.top()), egui::pos2(left + width, area.bottom()));
-    let p = ui.painter().clone();
-
-    let grid = theme::card(theme, &p, Card::Grid, egui::pos2(left, area.top()), scale, "Grid");
-    for (rect, slot) in grid.into_iter().zip(Slot::GRID) {
-        if key_cell(ui, rect, slot) {
-            action = Action::Listen(slot);
-        }
+    let (clicked, panels) = panels::cards(ui, theme, keys, listening);
+    if let Some(slot) = clicked {
+        action = Action::Listen(slot);
     }
-
-    let cmd_min = egui::pos2(left + grid_size.x + gap, area.top());
-    let commands = theme::card_panel(theme, &p, Rect::from_min_size(cmd_min, cmd_size), scale, "Commands");
-    // Centred in the body: four rows of two icon (36) + key (40) pairs.
-    let commands = Rect::from_center_size(commands.center(), vec2(192.0, 4.0 * 36.0 + 3.0 * 4.0));
-    ui.scope_builder(UiBuilder::new().max_rect(commands), |ui| {
-        ui.spacing_mut().item_spacing.y = 4.0;
-        let commands: Vec<_> = Slot::COMMANDS.into_iter().zip(theme::COMMAND_ICONS).collect();
-        for row in commands.chunks(2) {
-            ui.horizontal(|ui| {
-                for (i, &(slot, icon)) in row.iter().enumerate() {
-                    if i > 0 {
-                        ui.add_space(8.0);
-                    }
-                    theme::command_icon(ui, theme, icon, slot.label());
-                    if theme::key_box(ui, &keys.get(slot).label(), state(slot)).clicked() {
-                        action = Action::Listen(slot);
-                    }
-                }
-            });
-        }
-    });
-
-    let items_min = egui::pos2(cmd_min.x + cmd_size.x + gap, area.top());
-    let items = theme::card(theme, &p, Card::Items, items_min, scale, "Inventory");
-    for (rect, slot) in items.into_iter().zip(Slot::ITEMS) {
-        if key_cell(ui, rect, slot) {
-            action = Action::Listen(slot);
-        }
-    }
-    ui.advance_cursor_after_rect(area);
-    ui.add_space(6.0);
-    let note = "Abilities take the key of their button's cell. Commands keep theirs.";
-    ui.vertical_centered(|ui| ui.label(RichText::new(note).size(13.0).color(Color32::from_gray(160))));
 
     // Everything below the cards is centred on them: buttons, then the
     // status line, then the footnote above the disclaimer.
@@ -600,7 +466,7 @@ fn ready_ui(ui: &mut egui::Ui, theme: Option<&Theme>, r: &Ready, keys: &Keys, li
     ui.scope_builder(UiBuilder::new().max_rect(below), |ui| {
         centered_row(ui, "buttons", |ui| {
             let data_ready = matches!(r.data, Some(Ok(_)));
-            let can_apply = clashes.is_empty() && listening.is_none() && r.keys_file.is_some() && data_ready;
+            let can_apply = keys.clashes().is_empty() && listening.is_none() && r.keys_file.is_some() && data_ready;
             if theme::button(ui, theme, "Apply", can_apply).clicked() {
                 action = Action::ApplyKeys;
             }
@@ -612,26 +478,8 @@ fn ready_ui(ui: &mut egui::Ui, theme: Option<&Theme>, r: &Ready, keys: &Keys, li
             }
         });
         ui.add_space(4.0);
-        // A fresh Apply/Reset result flashes white and fades to its colour, so repeat clicks show.
-        let age = (ui.input(|i| i.time) - r.status_at) as f32;
-        let flash = |color: Color32| {
-            if age < STATUS_FLASH {
-                ui.ctx().request_repaint();
-            }
-            let t = (age / STATUS_FLASH).clamp(0.0, 1.0);
-            Color32::WHITE.lerp_to_gamma(color, t * t)
-        };
-        let (ok, err) = (flash(TEXT), flash(ERROR));
-        let (text, color) = match (&r.status, listening) {
-            (_, Some(_)) => ("Press a letter or a number (numpad), Delete for no key, or Esc to cancel.".into(), GOLD),
-            (Some(Ok(msg)), _) => (msg.clone(), ok),
-            (Some(Err(msg)), _) => (msg.clone(), err),
-            _ if r.data.is_none() => ("Reading unit data…".into(), Color32::from_gray(160)),
-            _ if let Some(Err(e)) = &r.data => (format!("Couldn't read unit data: {e}"), ERROR),
-            _ if !clashes.is_empty() => ("Red keys are used twice, or by an ability on the grid.".into(), ERROR),
-            _ => ("Click a key to change it.".into(), Color32::from_gray(160)),
-        };
-        ui.vertical_centered(|ui| ui.add(egui::Label::new(RichText::new(text).size(13.0).color(color)).wrap()));
+        let idle = panels::idle_status(r.data.as_ref(), keys);
+        panels::status_line(ui, r.status.as_ref(), r.status_at, listening.is_some(), idle);
     });
 
     // Footnote above the disclaimer: the install, and others found.
@@ -660,24 +508,6 @@ fn ready_ui(ui: &mut egui::Ui, theme: Option<&Theme>, r: &Ready, keys: &Keys, li
         }
     });
     action
-}
-
-/// A horizontal row centred in the available width. egui lays rows out
-/// left to right, so this centres on the width measured last frame.
-fn centered_row(ui: &mut egui::Ui, id: &str, add: impl FnOnce(&mut egui::Ui)) {
-    let id = ui.id().with(id);
-    let width: f32 = ui.data(|d| d.get_temp(id)).unwrap_or(0.0);
-    ui.horizontal(|ui| {
-        let pad = ((ui.available_width() - width) / 2.0).max(0.0);
-        ui.add_space(pad);
-        let start = ui.cursor().left();
-        add(ui);
-        let used = ui.min_rect().right() - start;
-        if (used - width).abs() > 0.5 {
-            ui.data_mut(|d| d.insert_temp(id, used));
-            ui.ctx().request_repaint();
-        }
-    });
 }
 
 /// Example install path shown in the empty path box.

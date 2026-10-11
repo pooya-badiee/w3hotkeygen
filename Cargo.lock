@@ -2116,6 +2116,7 @@ dependencies = [
  "rfd",
  "w3hk-assets",
  "w3hk-core",
+ "w3hk-ui",
  "winresource",
 ]
 
@@ -2138,6 +2139,15 @@ dependencies = [
 [[package]]
 name = "w3hk-core"
 version = "0.1.0"
+
+[[package]]
+name = "w3hk-ui"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "image",
+ "w3hk-core",
+]
 
 [[package]]
 name = "walkdir"

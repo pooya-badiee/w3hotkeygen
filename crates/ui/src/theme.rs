@@ -7,15 +7,12 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::mpsc::{self, Receiver};
-use std::thread;
 
 use eframe::egui::{
     self, Align2, Color32, ColorImage, FontData, FontDefinitions, FontFamily, FontId, Mesh, Painter, Pos2, Rect,
     Response, Sense, Shape, Stroke, TextureFilter, TextureHandle, TextureOptions, TextureWrapMode, Ui, Vec2, pos2,
     vec2,
 };
-use w3hk_assets::{GameFiles, Install};
 
 pub const GOLD: Color32 = Color32::from_rgb(0xff, 0xd4, 0x28);
 const GOLD_HOVER: Color32 = Color32::from_rgb(0xff, 0xdd, 0x33);
@@ -122,34 +119,36 @@ pub struct Theme {
     tex: HashMap<Tex, Texture>,
 }
 
-/// Decoded on a worker thread, uploaded on the UI thread.
-struct Decoded {
+/// Every game file the theme reads, so a caller that can't read on demand
+/// (the web) can fetch them first.
+pub fn paths() -> Vec<String> {
+    Tex::all().map(Tex::path).chain([FONT_BOLD.into(), FONT_BODY.into()]).collect()
+}
+
+/// The art and fonts, decoded off the UI thread where there is one, then
+/// uploaded with [`Theme::upload`].
+pub struct Decoded {
     images: Vec<(Tex, ColorImage)>,
     bold: Option<Vec<u8>>,
     body: Option<Vec<u8>>,
 }
 
-pub struct ThemeLoader {
-    rx: Receiver<Result<Decoded, String>>,
+/// `read` returns a game file's bytes, or `None` if it's missing; missing art
+/// falls back to the flat style.
+pub fn decode(read: impl Fn(&str) -> Option<Vec<u8>>) -> Decoded {
+    let images = Tex::all()
+        .filter_map(|t| {
+            let img = image::load_from_memory(&read(&t.path())?).ok()?.to_rgba8();
+            let size = [img.width() as usize, img.height() as usize];
+            Some((t, ColorImage::from_rgba_unmultiplied(size, &img)))
+        })
+        .collect();
+    Decoded { images, bold: read(FONT_BOLD), body: read(FONT_BODY) }
 }
 
-impl ThemeLoader {
-    pub fn spawn(ctx: &egui::Context, install: Install) -> Self {
-        let (tx, rx) = mpsc::channel();
-        let ctx = ctx.clone();
-        thread::spawn(move || {
-            let _ = tx.send(decode(&install));
-            ctx.request_repaint();
-        });
-        ThemeLoader { rx }
-    }
-
-    /// `Some` once loading finished. Installs fonts as a side effect.
-    pub fn poll(&self, ctx: &egui::Context) -> Option<Result<Theme, String>> {
-        let decoded = match self.rx.try_recv().ok()? {
-            Ok(d) => d,
-            Err(e) => return Some(Err(e)),
-        };
+impl Theme {
+    /// Uploads the art to the GPU. Installs the game's fonts as a side effect.
+    pub fn upload(ctx: &egui::Context, decoded: Decoded) -> Theme {
         install_fonts(ctx, decoded.bold, decoded.body);
         let tex = decoded
             .images
@@ -160,20 +159,8 @@ impl ThemeLoader {
                 (t, Texture { handle, size })
             })
             .collect();
-        Some(Ok(Theme { tex }))
+        Theme { tex }
     }
-}
-
-fn decode(install: &Install) -> Result<Decoded, String> {
-    let files = GameFiles::open(install).map_err(|e| e.to_string())?;
-    let images = Tex::all()
-        .filter_map(|t| {
-            let img = image::load_from_memory(&files.read(&t.path())?).ok()?.to_rgba8();
-            let size = [img.width() as usize, img.height() as usize];
-            Some((t, ColorImage::from_rgba_unmultiplied(size, &img)))
-        })
-        .collect();
-    Ok(Decoded { images, bold: files.read(FONT_BOLD), body: files.read(FONT_BODY) })
 }
 
 /// Sets up font families. Called at startup with no game fonts (so the

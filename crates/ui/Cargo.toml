@@ -1,0 +1,11 @@
+[package]
+name = "w3hk-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The look and the shared screen parts of the exe and the web page"
+
+[dependencies]
+w3hk-core = { path = "../core" }
+eframe = { version = "0.36", default-features = false, features = ["glow", "default_fonts"] }
+image = { version = "0.25", default-features = false, features = ["png"] }

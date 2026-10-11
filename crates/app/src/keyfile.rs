@@ -5,8 +5,6 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use w3hk_core::Keys;
-
 /// Next to the keys file. Written once, on the first Apply, and removed by
 /// Reset. Empty means there was no keys file before.
 fn backup_path(file: &Path) -> PathBuf {
@@ -17,9 +15,9 @@ pub fn has_backup(file: &Path) -> bool {
     backup_path(file).is_file()
 }
 
-/// The keys in the file now (defaults if it doesn't exist).
-pub fn load(file: &Path) -> Keys {
-    Keys::read(&fs::read_to_string(file).unwrap_or_default())
+/// The file's text now (empty if it doesn't exist).
+pub fn read(file: &Path) -> String {
+    fs::read_to_string(file).unwrap_or_default()
 }
 
 /// Replaces the file with `text`, backing up the original first.
@@ -57,7 +55,7 @@ pub fn reset(file: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use w3hk_core::{Key, Slot};
+    use w3hk_core::{Key, Keys, Slot};
 
     fn temp_file(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("w3hk-keyfile-{name}-{}", std::process::id()));
@@ -73,7 +71,7 @@ mod tests {
 
         apply(&file, "[CmdAttack]\nHotkey=K\n").unwrap();
         apply(&file, "[CmdAttack]\nHotkey=L\n").unwrap(); // second apply keeps the first backup
-        assert_eq!(load(&file).get(Slot::Attack), Key::letter('L'));
+        assert_eq!(Keys::read(&read(&file)).get(Slot::Attack), Key::letter('L'));
         assert!(has_backup(&file));
 
         reset(&file).unwrap();
