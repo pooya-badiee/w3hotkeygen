@@ -1,3 +1,7 @@
 import { defineConfig } from "astro/config";
 
-export default defineConfig({});
+// Served by GitHub Pages from the repo's subpath.
+export default defineConfig({
+  site: "https://pooya-badiee.github.io",
+  base: "/w3hotkeygen/",
+});

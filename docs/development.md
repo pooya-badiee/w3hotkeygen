@@ -22,7 +22,7 @@ cargo test -p w3hk-assets --test reference -- --nocapture  # data vs. the user's
 ```
 
 ## Website
-[site/](../site/) is the download page, a single static Astro page. Its download links point at the latest GitHub Release; the repo URL is the `REPO` constant in [site.ts](../site/src/site.ts).
+[site/](../site/) is the download page, a single static Astro page, live at <https://pooya-badiee.github.io/w3hotkeygen/>. [pages.yml](../.github/workflows/pages.yml) publishes it on every push to `main` that touches `site/`. Its download links point at the latest GitHub Release; the repo URL is the `REPO` constant in [site.ts](../site/src/site.ts).
 ```sh
 cd site && npm install && npm run dev   # local preview
 npm run build                           # type check (astro check), then static output in site/dist
