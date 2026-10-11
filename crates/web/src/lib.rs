@@ -16,11 +16,12 @@ pub async fn start(canvas: web_sys::HtmlCanvasElement, pack: Vec<u8>) -> Result<
     let files = w3hk_core::pack::read(&raw).ok_or("game.pack is damaged")?;
     // The page keeps running for as long as it's open.
     let runner: &'static eframe::WebRunner = Box::leak(Box::new(eframe::WebRunner::new()));
+    let for_app = canvas.clone();
     runner
         .start(
             canvas,
             eframe::WebOptions::default(),
-            Box::new(move |cc| Ok(Box::new(app::WebApp::new(&cc.egui_ctx, files)))),
+            Box::new(move |cc| Ok(Box::new(app::WebApp::new(&cc.egui_ctx, for_app, files)))),
         )
         .await
 }

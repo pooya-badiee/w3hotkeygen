@@ -12,6 +12,8 @@ use w3hk_ui::theme::{self, Theme};
 use crate::browser;
 
 pub struct WebApp {
+    /// The page's canvas, measured to fit the window to it.
+    canvas: web_sys::HtmlCanvasElement,
     theme: Theme,
     /// Units and abilities. Download needs them.
     data: Result<GameData, String>,
@@ -46,14 +48,17 @@ enum Action {
 }
 
 impl WebApp {
-    pub fn new(ctx: &egui::Context, files: HashMap<String, Vec<u8>>) -> Self {
+    pub fn new(ctx: &egui::Context, canvas: web_sys::HtmlCanvasElement, files: HashMap<String, Vec<u8>>) -> Self {
         theme::apply_visuals(ctx);
+        // The zoom fits the window to the canvas; leave Ctrl +/- to the browser.
+        ctx.options_mut(|o| o.zoom_with_keyboard = false);
         let theme = Theme::upload(ctx, theme::decode(|path| files.get(path).cloned()));
         let text = |path: &str| files.get(path).map(|b| String::from_utf8_lossy(b).into_owned());
         let data = w3hk_core::load::load(text, "enus").map_err(|e| e.to_string());
         let version = text(w3hk_core::pack::VERSION).unwrap_or_default();
         let (keys, repaired) = panels::read_keys(&browser::saved_keys().unwrap_or_default());
         WebApp {
+            canvas,
             theme,
             data,
             version,
@@ -136,6 +141,25 @@ impl WebApp {
     }
 }
 
+/// The exe's window width, in points. The screen is laid out for it.
+const WIDTH: f32 = 768.0;
+
+/// On a screen narrower than the window the page shrinks the canvas, keeping
+/// its shape; zooming by the same factor shows the same window, smaller. On
+/// desktop the canvas is the full width, so the zoom stays 1. Measured in CSS
+/// pixels, so the device pixel ratio doesn't come into it.
+fn fit_to_canvas(ctx: &egui::Context, canvas: &web_sys::HtmlCanvasElement) {
+    let css_width = canvas.client_width() as f32;
+    if css_width <= 0.0 {
+        return;
+    }
+    let fit = (css_width / WIDTH).min(1.0);
+    if (fit - ctx.zoom_factor()).abs() > 0.001 {
+        ctx.set_zoom_factor(fit);
+        ctx.request_repaint();
+    }
+}
+
 impl eframe::App for WebApp {
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
         [0.04, 0.035, 0.03, 1.0]
@@ -143,6 +167,7 @@ impl eframe::App for WebApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        fit_to_canvas(&ctx, &self.canvas);
         if let Some(slot) = self.listening
             && panels::capture_key(&ctx, &mut self.keys, slot)
         {

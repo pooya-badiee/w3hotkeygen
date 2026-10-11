@@ -83,13 +83,13 @@ const base = import.meta.env.BASE_URL;
     align-items: center;
     justify-content: center;
     padding: 16px;
-    overflow-x: auto;
   }
-  /* The app's fixed window size. */
+  /* The app's window size. On narrower screens it shrinks, keeping its
+     shape, and the app zooms to match (fit_to_canvas in crates/web). */
   .window {
     position: relative;
-    width: 768px;
-    height: 490px;
+    width: min(768px, 100%);
+    aspect-ratio: 768 / 490;
     flex: none;
     margin-bottom: 14px;
   }
